@@ -1,4 +1,6 @@
 flask 
 pyjwt
 sendgrid
-python-env
+# python-env
+python-dotenv
+requests

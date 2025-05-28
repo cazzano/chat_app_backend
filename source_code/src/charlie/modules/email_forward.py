@@ -1,21 +1,22 @@
 from flask import Flask, request, jsonify
 import sqlite3
-import smtplib
 import random
 import string
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import os
 from datetime import datetime
 import re
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 app = Flask(__name__)
 
-# Email configuration (you'll need to set these environment variables)
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
-EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS', 'your_email@gmail.com')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', 'your_app_password')
+# SendGrid configuration
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+FROM_EMAIL = os.getenv('FROM_EMAIL', 'noreply@yourdomain.com')  # Must be verified in SendGrid
+
+# Validate SendGrid configuration
+if not SENDGRID_API_KEY:
+    print("WARNING: SENDGRID_API_KEY environment variable not set!")
 
 # Database setup
 def init_db():
@@ -78,17 +79,50 @@ def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
-def send_email(to_email, pin_code, user_id):
-    """Send email with the generated PIN code"""
+def send_email_sendgrid(to_email, pin_code, user_id):
+    """Send email using SendGrid with the generated PIN code"""
     try:
-        # Create message
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_ADDRESS
-        msg['To'] = to_email
-        msg['Subject'] = "Your Verification Code"
+        # Check if SendGrid is configured
+        if not SENDGRID_API_KEY:
+            print("SendGrid API key not configured")
+            return False
 
-        # Email body
-        body = f"""
+        # Create email content
+        subject = "Your Verification Code"
+
+        # HTML content for better formatting
+        html_content = f"""
+        <html>
+        <head></head>
+        <body>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #333; text-align: center;">Verification Code</h2>
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p style="font-size: 16px; color: #333;">Hello,</p>
+                    <p style="font-size: 16px; color: #333;">Your verification code is:</p>
+                    <div style="background-color: #e9ecef; padding: 15px; border-left: 4px solid #007bff; margin: 15px 0;">
+                        <h3 style="margin: 0; color: #007bff; font-family: monospace; letter-spacing: 2px;">{pin_code}</h3>
+                    </div>
+                    <p style="font-size: 14px; color: #666;">
+                        <strong>User ID:</strong> {user_id}<br>
+                        <strong>Generated on:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    </p>
+                    <p style="font-size: 14px; color: #dc3545; margin-top: 20px;">
+                        ⚠ Please keep this code secure and do not share it with anyone.
+                    </p>
+                </div>
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+                    <p style="font-size: 12px; color: #6c757d;">
+                        This email was sent by Email Forwarder Service
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        # Plain text version
+        plain_content = f"""
         Hello,
 
         Your verification code is: {pin_code}
@@ -102,19 +136,29 @@ def send_email(to_email, pin_code, user_id):
         Email Forwarder Service
         """
 
-        msg.attach(MIMEText(body, 'plain'))
+        # Create the mail object
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=to_email,
+            subject=subject,
+            html_content=html_content,
+            plain_text_content=plain_content
+        )
 
-        # Connect to server and send email
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        text = msg.as_string()
-        server.sendmail(EMAIL_ADDRESS, to_email, text)
-        server.quit()
+        # Send email
+        sg = SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        response = sg.send(message)
 
-        return True
+        # Check if email was sent successfully
+        if response.status_code in [200, 201, 202]:
+            print(f"Email sent successfully to {to_email}. Status: {response.status_code}")
+            return True
+        else:
+            print(f"Failed to send email. Status: {response.status_code}")
+            return False
+
     except Exception as e:
-        print(f"Error sending email: {str(e)}")
+        print(f"Error sending email via SendGrid: {str(e)}")
         return False
 
 @app.route('/send-code', methods=['POST'])
@@ -139,6 +183,13 @@ def send_code():
                 'message': 'Invalid email format'
             }), 400
 
+        # Check if SendGrid is configured
+        if not SENDGRID_API_KEY:
+            return jsonify({
+                'success': False,
+                'message': 'Email service not configured'
+            }), 500
+
         # Generate code and user ID
         pin_code = generate_random_code()
         user_id = generate_user_id()
@@ -155,8 +206,8 @@ def send_code():
 
             conn.commit()
 
-            # Send email
-            if send_email(email, pin_code, user_id):
+            # Send email via SendGrid
+            if send_email_sendgrid(email, pin_code, user_id):
                 return jsonify({
                     'success': True,
                     'message': 'Verification code sent successfully',
@@ -302,24 +353,73 @@ def health_check():
     return jsonify({
         'success': True,
         'message': 'Email Forwarder Service is running',
+        'sendgrid_configured': bool(SENDGRID_API_KEY),
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/test-sendgrid', methods=['POST'])
+def test_sendgrid():
+    """Test SendGrid configuration"""
+    try:
+        data = request.get_json()
+        if not data or 'email' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'Test email address is required'
+            }), 400
+
+        test_email = data['email']
+
+        # Send test email
+        if send_email_sendgrid(test_email, "TEST123", "U00"):
+            return jsonify({
+                'success': True,
+                'message': 'Test email sent successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send test email'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Test failed: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     # Initialize database
     init_db()
 
-    print("Email Forwarder Service Starting...")
-    print("Available endpoints:")
+    print("="*60)
+    print("📧 EMAIL FORWARDER SERVICE WITH SENDGRID")
+    print("="*60)
+
+    print("\n🚀 Available endpoints:")
     print("- POST /send-code - Send verification code to email")
     print("- POST /verify-code - Verify a PIN code")
     print("- GET /get-codes - Get all codes (testing)")
     print("- DELETE /delete-code/<user_id> - Delete specific code")
     print("- GET /health - Health check")
-    print("\nMake sure to set these environment variables:")
-    print("- SMTP_SERVER (default: smtp.gmail.com)")
-    print("- SMTP_PORT (default: 587)")
-    print("- EMAIL_ADDRESS (your email)")
-    print("- EMAIL_PASSWORD (your app password)")
+    print("- POST /test-sendgrid - Test SendGrid configuration")
+
+    print("\n⚙  Required Environment Variables:")
+    print("- SENDGRID_API_KEY: Your SendGrid API key (REQUIRED)")
+    print("- FROM_EMAIL: Verified sender email in SendGrid (REQUIRED)")
+
+    print("\n📋 SendGrid Setup Instructions:")
+    print("1. Sign up at https://sendgrid.com")
+    print("2. Verify your sender email/domain")
+    print("3. Create an API key with 'Mail Send' permissions")
+    print("4. Set environment variables:")
+    print("   export SENDGRID_API_KEY='your_api_key_here'")
+    print("   export FROM_EMAIL='your_verified_email@domain.com'")
+
+    if not SENDGRID_API_KEY:
+        print("\n⚠  WARNING: SENDGRID_API_KEY not configured!")
+        print("   The email service will not work until you set this variable.")
+
+    print("\n" + "="*60)
 
     app.run(debug=True, host='0.0.0.0', port=3000)
