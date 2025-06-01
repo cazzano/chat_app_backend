@@ -16,5 +16,9 @@ curl -X POST http://localhost:2000/send_message -H "Sender-User-Id: U01" -H "Rec
 
 
 curl http://localhost:2000/sent_messages/U02 \
+  -H "sender_user_id: U01" \
+  -H "sender_password: pass123"
+
+curl http://localhost:2000/sent_messages/U02 \
   -H "Sender-User-Id: U01" \
   -H "Sender-Password: pass123"

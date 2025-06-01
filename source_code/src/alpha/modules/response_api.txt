@@ -1,0 +1,115 @@
+curl -X POST http://localhost:5000/register \
+                                               -H "username: hassan" \
+                                               -H "password: pass123"
+
+response =>
+
+{
+  "message": "User registered successfully",
+  "user_id": "U05",
+  "username": "hassan"
+}
+
+curl http://localhost:5000/users
+
+
+response =>
+
+{
+  "total_users": 5,
+  "users": [
+    {
+      "created_at": "2025-05-28 07:07:03",
+      "user_id": "U01",
+      "username": "cazzano"
+    },
+    {
+      "created_at": "2025-05-28 07:26:15",
+      "user_id": "U02",
+      "username": "test"
+    },
+    {
+      "created_at": "2025-05-28 15:45:14",
+      "user_id": "U03",
+      "username": "john"
+    },
+    {
+      "created_at": "2025-06-01 18:43:38",
+      "user_id": "U04",
+      "username": "ali"
+    },
+    {
+      "created_at": "2025-06-01 18:48:07",
+      "user_id": "U05",
+      "username": "hassan"
+    }
+  ]
+}
+
+curl http://localhost:5000/user/U01
+
+response=>
+
+{
+  "created_at": "2025-05-28 07:07:03",
+  "user_id": "U01",
+  "username": "cazzano"
+}
+
+curl -X POST http://localhost:2000/send_message -H "Sender-User-Id: U01" -H "Recipient-User-Id: U02" -H "Sender-Password: pass123" -H "Content-Type: application/json" -d '{"message": "Hello there!"}'
+
+response=>
+
+{
+  "message": "Message sent successfully",
+  "message_id": 8,
+  "recipient": "U02",
+  "sender": "U01",
+  "timestamp": "2025-06-01T18:51:11.605795"
+}
+
+curl http://localhost:2000/sent_messages/U02 \
+                                               -H "Sender-User-Id: U01" \
+                                               -H "Sender-Password: pass123"
+
+response =>
+
+{
+  "recipient": "U02",
+  "sender": "U01",
+  "sent_messages": [
+    {
+      "is_read": false,
+      "message": "Hello there!",
+      "message_id": 8,
+      "recipient": "U02",
+      "sender": "U01",
+      "timestamp": "2025-06-01 18:51:11"
+    },
+    {
+      "is_read": false,
+      "message": "thek hai",
+      "message_id": 3,
+      "recipient": "U02",
+      "sender": "U01",
+      "timestamp": "2025-05-28 13:09:16"
+    },
+    {
+      "is_read": false,
+      "message": "kia hal hai",
+      "message_id": 2,
+      "recipient": "U02",
+      "sender": "U01",
+      "timestamp": "2025-05-28 13:09:03"
+    },
+    {
+      "is_read": false,
+      "message": "Hello there!",
+      "message_id": 1,
+      "recipient": "U02",
+      "sender": "U01",
+      "timestamp": "2025-05-28 08:10:36"
+    }
+  ],
+  "total_messages": 4
+}
