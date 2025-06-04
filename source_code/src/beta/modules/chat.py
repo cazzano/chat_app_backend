@@ -143,7 +143,7 @@ def token_required(f):
 
     return decorated
 
-# NEW JWT-BASED ENDPOINTS
+# JWT-BASED ENDPOINTS
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -363,256 +363,6 @@ def mark_message_read_auth(current_user, message_id):
             'error': f'Failed to mark message as read: {str(e)}'
         }), 500
 
-# LEGACY ENDPOINTS (Preserved for backward compatibility)
-
-@app.route('/send_message', methods=['POST'])
-def send_message():
-    """Send a message to a recipient (Legacy - using headers)"""
-    try:
-        # Get headers (try different header name formats)
-        sender_user_id = request.headers.get('sender_user_id') or request.headers.get('Sender-User-Id')
-        recipient_user_id = request.headers.get('recipient_user_id') or request.headers.get('Recipient-User-Id')
-        sender_password = request.headers.get('sender_password') or request.headers.get('Sender-Password')
-
-        # Debug: Print received headers
-        print(f"Received headers: {dict(request.headers)}")
-        print(f"Sender ID: {sender_user_id}, Recipient ID: {recipient_user_id}, Password: {'***' if sender_password else None}")
-
-        # Get message from request body
-        data = request.get_json()
-        if not data or 'message' not in data:
-            return jsonify({
-                'error': 'Message content is required in request body'
-            }), 400
-
-        message = data['message']
-
-        # Validate required headers
-        if not all([sender_user_id, recipient_user_id, sender_password]):
-            return jsonify({
-                'error': 'Missing required headers: sender_user_id, recipient_user_id, sender_password'
-            }), 400
-
-        # Verify sender credentials
-        if not verify_user_credentials(sender_user_id, sender_password):
-            return jsonify({
-                'error': 'Invalid sender credentials'
-            }), 401
-
-        # Check if recipient exists
-        if not check_user_exists(recipient_user_id):
-            return jsonify({
-                'error': 'Recipient user not found'
-            }), 404
-
-        # Check if sender is trying to send to themselves
-        if sender_user_id == recipient_user_id:
-            return jsonify({
-                'error': 'Cannot send message to yourself'
-            }), 400
-
-        # Store message in chat database
-        conn = sqlite3.connect(CHAT_DATABASE)
-        cursor = conn.cursor()
-
-        cursor.execute('''
-            INSERT INTO messages (sender_user_id, recipient_user_id, message)
-            VALUES (?, ?, ?)
-        ''', (sender_user_id, recipient_user_id, message))
-
-        message_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-
-        return jsonify({
-            'message': 'Message sent successfully',
-            'message_id': message_id,
-            'sender': sender_user_id,
-            'recipient': recipient_user_id,
-            'timestamp': datetime.now().isoformat()
-        }), 201
-
-    except Exception as e:
-        return jsonify({
-            'error': f'Failed to send message: {str(e)}'
-        }), 500
-
-@app.route('/messages/<user_id>', methods=['GET'])
-def get_messages(user_id):
-    """Get messages for a specific user (Legacy - using headers)"""
-    try:
-        # Get password from header for authentication
-        password = request.headers.get('password')
-
-        if not password:
-            return jsonify({
-                'error': 'Password header is required'
-            }), 400
-
-        # Verify user credentials
-        if not verify_user_credentials(user_id, password):
-            return jsonify({
-                'error': 'Invalid credentials'
-            }), 401
-
-        conn = sqlite3.connect(CHAT_DATABASE)
-        cursor = conn.cursor()
-
-        # Get all messages where user is either sender or recipient
-        cursor.execute('''
-            SELECT id, sender_user_id, recipient_user_id, message, timestamp, is_read
-            FROM messages
-            WHERE sender_user_id = ? OR recipient_user_id = ?
-            ORDER BY timestamp DESC
-        ''', (user_id, user_id))
-
-        messages = []
-        for row in cursor.fetchall():
-            messages.append({
-                'message_id': row[0],
-                'sender': row[1],
-                'recipient': row[2],
-                'message': row[3],
-                'timestamp': row[4],
-                'is_read': bool(row[5]),
-                'direction': 'sent' if row[1] == user_id else 'received'
-            })
-
-        conn.close()
-
-        return jsonify({
-            'messages': messages,
-            'total_messages': len(messages)
-        }), 200
-
-    except Exception as e:
-        return jsonify({
-            'error': f'Failed to fetch messages: {str(e)}'
-        }), 500
-
-@app.route('/conversation/<user_id>/<other_user_id>', methods=['GET'])
-def get_conversation(user_id, other_user_id):
-    """Get conversation between two users (Legacy - using headers)"""
-    try:
-        # Get password from header for authentication
-        password = request.headers.get('password')
-
-        if not password:
-            return jsonify({
-                'error': 'Password header is required'
-            }), 400
-
-        # Verify user credentials
-        if not verify_user_credentials(user_id, password):
-            return jsonify({
-                'error': 'Invalid credentials'
-            }), 401
-
-        conn = sqlite3.connect(CHAT_DATABASE)
-        cursor = conn.cursor()
-
-        # Get messages between the two users
-        cursor.execute('''
-            SELECT id, sender_user_id, recipient_user_id, message, timestamp, is_read
-            FROM messages
-            WHERE (sender_user_id = ? AND recipient_user_id = ?)
-               OR (sender_user_id = ? AND recipient_user_id = ?)
-            ORDER BY timestamp ASC
-        ''', (user_id, other_user_id, other_user_id, user_id))
-
-        messages = []
-        for row in cursor.fetchall():
-            messages.append({
-                'message_id': row[0],
-                'sender': row[1],
-                'recipient': row[2],
-                'message': row[3],
-                'timestamp': row[4],
-                'is_read': bool(row[5]),
-                'direction': 'sent' if row[1] == user_id else 'received'
-            })
-
-        conn.close()
-
-        return jsonify({
-            'conversation': messages,
-            'participants': [user_id, other_user_id],
-            'total_messages': len(messages)
-        }), 200
-
-    except Exception as e:
-        return jsonify({
-            'error': f'Failed to fetch conversation: {str(e)}'
-        }), 500
-
-@app.route('/mark_read/<message_id>', methods=['PUT'])
-def mark_message_read(message_id):
-    """Mark a message as read (Legacy - using headers)"""
-    try:
-        # Get user credentials from headers
-        user_id = request.headers.get('user_id')
-        password = request.headers.get('password')
-
-        if not all([user_id, password]):
-            return jsonify({
-                'error': 'Missing required headers: user_id, password'
-            }), 400
-
-        # Verify user credentials
-        if not verify_user_credentials(user_id, password):
-            return jsonify({
-                'error': 'Invalid credentials'
-            }), 401
-
-        conn = sqlite3.connect(CHAT_DATABASE)
-        cursor = conn.cursor()
-
-        # Check if message exists and user is the recipient
-        cursor.execute('''
-            SELECT recipient_user_id FROM messages WHERE id = ?
-        ''', (message_id,))
-
-        result = cursor.fetchone()
-        if not result:
-            conn.close()
-            return jsonify({
-                'error': 'Message not found'
-            }), 404
-
-        if result[0] != user_id:
-            conn.close()
-            return jsonify({
-                'error': 'You can only mark your received messages as read'
-            }), 403
-
-        # Mark message as read
-        cursor.execute('''
-            UPDATE messages SET is_read = TRUE WHERE id = ?
-        ''', (message_id,))
-
-        conn.commit()
-        conn.close()
-
-        return jsonify({
-            'message': 'Message marked as read'
-        }), 200
-
-    except Exception as e:
-        return jsonify({
-            'error': f'Failed to mark message as read: {str(e)}'
-        }), 500
-
-# Additional utility endpoints
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'Chat API',
-        'timestamp': datetime.now().isoformat()
-    }), 200
-
 @app.route('/auth/users', methods=['GET'])
 @token_required
 def get_users_auth(current_user):
@@ -711,6 +461,17 @@ def delete_message_auth(current_user, message_id):
             'error': f'Failed to delete message: {str(e)}'
         }), 500
 
+# Utility endpoints
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Chat API',
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
 @app.route('/stats', methods=['GET'])
 def get_stats():
     """Get basic statistics about the chat system"""
@@ -785,10 +546,6 @@ if __name__ == '__main__':
     print("  PUT /auth/mark_read/<message_id> - Mark message as read (JWT auth)")
     print("  GET /auth/users - Get all users (JWT auth)")
     print("  DELETE /auth/delete_message/<message_id> - Delete message (JWT auth)")
-    print("  POST /send_message - Send message (Legacy)")
-    print("  GET /messages/<user_id> - Get messages (Legacy)")
-    print("  GET /conversation/<user_id>/<other_user_id> - Get conversation (Legacy)")
-    print("  PUT /mark_read/<message_id> - Mark as read (Legacy)")
     print("  GET /health - Health check")
     print("  GET /stats - System statistics")
     
