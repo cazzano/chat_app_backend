@@ -16,5 +16,48 @@ curl -X POST http://localhost:2000/send_message -H "Sender-User-Id: U01" -H "Rec
 
 
 curl http://localhost:2000/sent_messages/U02 \
+  -H "sender_user_id: U01" \
+  -H "sender_password: pass123"
+
+curl http://localhost:2000/sent_messages/U02 \
   -H "Sender-User-Id: U01" \
   -H "Sender-Password: pass123"
+
+
+Jwt Tokens 
+
+curl -X POST http://localhost:5001/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "your_user_id",
+    "password": "your_password"
+  }'
+
+
+curl -X POST http://localhost:5001/auth/send_message \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{
+    "message": "Hello, this is a test message!",
+    "recipient_user_id": "recipient_user_id"
+  }'
+
+
+curl -X GET http://localhost:5001/auth/messages \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
+
+
+curl -X GET http://localhost:5001/auth/conversation/other_user_id \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
+
+curl -X PUT http://localhost:5001/auth/mark_read/MESSAGE_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
+
+curl -X GET http://localhost:5001/auth/users \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
+
+curl -X DELETE http://localhost:5001/auth/delete_message/MESSAGE_ID \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
+
+
+ 
