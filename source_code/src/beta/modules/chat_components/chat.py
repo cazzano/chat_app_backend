@@ -12,7 +12,7 @@ from modules.check_user_exist_from_db import check_user_exists
 from apis.send_messages import send_messages
 from apis.get_users import get_users
 from apis.conversation import conversation
-from apis.delete_message import delete_message
+from apis.test.delete_message import delete_message
 from apis.mark_as_read import mark_as_read
 from apis.get_messages import get_messages
 
