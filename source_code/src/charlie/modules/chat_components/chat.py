@@ -15,6 +15,7 @@ from apis.chat.conversation import conversation
 from apis.chat.delete_message import delete_message
 from apis.chat.mark_as_read import mark_as_read
 from apis.chat.get_messages import get_messages
+from apis.chat.login_jwt import login_jwt
 
 # Configuration
 CHAT_DATABASE = 'chat.db'
@@ -32,42 +33,7 @@ app.register_blueprint(get_users)
 app.register_blueprint(conversation)
 app.register_blueprint(delete_message)
 app.register_blueprint(mark_as_read)
-
-# JWT-BASED ENDPOINTS
-
-@app.route('/login', methods=['POST'])
-def login():
-    """Login endpoint to authenticate user and get JWT token"""
-    try:
-        data = request.get_json()
-
-        if not data or not data.get('user_id') or not data.get('password'):
-            return jsonify({'error': 'User ID and password are required!'}), 400
-
-        user_id = data['user_id']
-        password = data['password']
-
-        # Verify credentials against local database
-        if verify_user_credentials(user_id, password):
-            # Generate JWT token locally (same as auth service)
-            token = jwt.encode({
-                'user_id': user_id,
-                'username': user_id,  # Using user_id as username for simplicity
-                'exp': datetime.utcnow() + timedelta(hours=24)
-            }, JWT_SECRET_KEY, algorithm='HS256')
-
-            return jsonify({
-                'message': 'Login successful!',
-                'token': token,
-                'user_id': user_id,
-                'expires_in': '24 hours'
-            }), 200
-        else:
-            return jsonify({'error': 'Invalid user ID or password!'}), 401
-
-    except Exception as e:
-        print(f"Login error: {e}")
-        return jsonify({'error': 'An error occurred during login'}), 500
+app.register_blueprint(login_jwt)
 
 # Utility endpoints
 
