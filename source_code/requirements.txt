@@ -4,3 +4,6 @@ sendgrid
 # python-env
 python-dotenv
 requests
+flask 
+psutil 
+requests

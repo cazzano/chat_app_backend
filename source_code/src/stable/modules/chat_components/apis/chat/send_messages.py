@@ -5,10 +5,8 @@ import jwt
 from functools import wraps
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
-from modules.chat.init_chat_db import init_chat_db
-from modules.chat.token_verification_and_autorization import token_required
-from modules.chat.users_credentials_verification_from_db import verify_user_credentials
 from modules.chat.check_user_exist_from_db import check_user_exists
+from modules.chat.token_verification_and_autorization import token_required
 
 
 send_messages=Blueprint('send_messages',__name__)

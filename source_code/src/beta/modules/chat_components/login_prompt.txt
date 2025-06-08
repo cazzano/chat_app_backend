@@ -1,0 +1,314 @@
+token_verification_and_autorization.py ==>(
+
+from flask import Flask, request, jsonify
+import sqlite3
+import requests
+import jwt
+from functools import wraps
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
+
+app = Flask(__name__)
+
+# Configuration
+CHAT_DATABASE = 'chat.db'
+USER_API_URL = 'http://localhost:5000'  # User registration API URL
+AUTH_API_URL = 'http://localhost:3000'  # Authentication API URL
+JWT_SECRET_KEY = 'your-secret-key-change-this-in-production'  # Should match auth_app.py
+
+
+
+def token_required(f):
+    """Decorator to verify JWT token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+
+        if not token:
+            return jsonify({'error': 'Token is missing!'}), 401
+
+        try:
+            # Remove 'Bearer ' prefix if present
+            if token.startswith('Bearer '):
+                token = token[7:]
+
+            data = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+            current_user = {
+                'user_id': data['user_id'],
+                'username': data['username']
+            }
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Token is invalid!'}), 401
+
+        return f(current_user, *args, **kwargs)
+
+    return decorated
+
+
+)
+
+check_user_exist_from_db.py==>(
+
+from flask import Flask, request, jsonify
+import sqlite3
+import requests
+import jwt
+from functools import wraps
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
+
+
+app = Flask(__name__)
+
+# Configuration
+CHAT_DATABASE = 'chat.db'
+USER_API_URL = 'http://localhost:5000'  # User registration API URL
+AUTH_API_URL = 'http://localhost:3000'  # Authentication API URL
+JWT_SECRET_KEY = 'your-secret-key-change-this-in-production'  # Should match auth_app.py
+
+
+def check_user_exists(user_id):
+    """Check if a user exists in the registration database"""
+    try:
+        # Try different possible paths for the users database
+        possible_paths = ['users.db', '../users.db', './users.db']
+        user_conn = None
+
+        for path in possible_paths:
+            try:
+                user_conn = sqlite3.connect(path)
+                cursor = user_conn.cursor()
+                # Test if the table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                if cursor.fetchone():
+                    break
+                user_conn.close()
+                user_conn = None
+            except:
+                if user_conn:
+                    user_conn.close()
+                continue
+
+        if not user_conn:
+            print("Could not find users database")
+            return False
+
+        cursor = user_conn.cursor()
+        cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+        user_conn.close()
+
+        return result is not None
+
+    except Exception as e:
+        print(f"Error checking user existence: {e}")
+        return False
+)
+
+users_credentials_verification_from_db.py ==>(
+
+from flask import Flask, request, jsonify
+import sqlite3
+import requests
+import jwt
+from functools import wraps
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
+
+
+app = Flask(__name__)
+
+# Configuration
+CHAT_DATABASE = 'chat.db'
+USER_API_URL = 'http://localhost:5000'  # User registration API URL
+AUTH_API_URL = 'http://localhost:3000'  # Authentication API URL
+JWT_SECRET_KEY = 'your-secret-key-change-this-in-production'  # Should match auth_app.py
+
+
+def verify_user_credentials(user_id, password):
+    """Verify user credentials against the user registration database (Legacy)"""
+    try:
+        # Try different possible paths for the users database
+        possible_paths = ['users.db', '../users.db', './users.db']
+        user_conn = None
+
+        for path in possible_paths:
+            try:
+                user_conn = sqlite3.connect(path)
+                cursor = user_conn.cursor()
+                # Test if the table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                if cursor.fetchone():
+                    print(f"Found users database at: {path}")
+                    break
+                user_conn.close()
+                user_conn = None
+            except:
+                if user_conn:
+                    user_conn.close()
+                continue
+
+        if not user_conn:
+            print("Could not find users database")
+            return False
+
+        cursor = user_conn.cursor()
+        cursor.execute("SELECT password_hash FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        print(f"Database query result for user {user_id}: {'Found' if result else 'Not found'}")
+
+        user_conn.close()
+
+        if result:
+            password_match = check_password_hash(result[0], password)
+            print(f"Password verification for {user_id}: {'Success' if password_match else 'Failed'}")
+            return password_match
+        return False
+
+    except Exception as e:
+        print(f"Error verifying credentials: {e}")
+        return False
+
+)
+
+
+login_jwt api==>(
+from flask import Flask, request, jsonify, Blueprint
+import sqlite3
+import requests
+import jwt
+from functools import wraps
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
+from modules.chat.users_credentials_verification_from_db import verify_user_credentials
+
+
+# Configuration
+CHAT_DATABASE = 'chat.db'
+USER_API_URL = 'http://localhost:5000'  # User registration API URL
+AUTH_API_URL = 'http://localhost:3000'  # Authentication API URL
+JWT_SECRET_KEY = 'your-secret-key-change-this-in-production'  # Should match auth_app.py
+
+
+login_jwt=Blueprint('login_jwt',__name__)
+
+
+
+@login_jwt.route('/login', methods=['POST'])
+def login():
+    """Login endpoint to authenticate user and get JWT token"""
+    try:
+        data = request.get_json()
+
+        if not data or not data.get('user_id') or not data.get('password'):
+            return jsonify({'error': 'User ID and password are required!'}), 400
+
+        user_id = data['user_id']
+        password = data['password']
+
+        # Verify credentials against local database
+        if verify_user_credentials(user_id, password):
+            # Generate JWT token locally (same as auth service)
+            token = jwt.encode({
+                'user_id': user_id,
+                'username': user_id,  # Using user_id as username for simplicity
+                'exp': datetime.utcnow() + timedelta(hours=24)
+            }, JWT_SECRET_KEY, algorithm='HS256')
+
+            return jsonify({
+                'message': 'Login successful!',
+                'token': token,
+                'user_id': user_id,
+                'expires_in': '24 hours'
+            }), 200
+        else:
+            return jsonify({'error': 'Invalid user ID or password!'}), 401
+
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'error': 'An error occurred during login'}), 500
+
+
+)
+
+send_messages api ==>(
+
+from flask import Flask, request, jsonify, Blueprint
+import sqlite3
+import requests
+import jwt
+from functools import wraps
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
+from modules.chat.check_user_exist_from_db import check_user_exists
+from modules.chat.token_verification_and_autorization import token_required
+
+
+send_messages=Blueprint('send_messages',__name__)
+
+# Configuration
+CHAT_DATABASE = 'chat.db'
+USER_API_URL = 'http://localhost:5000'  # User registration API URL
+AUTH_API_URL = 'http://localhost:3000'  # Authentication API URL
+JWT_SECRET_KEY = 'your-secret-key-change-this-in-production'  # Should match auth_app.py
+
+
+
+@send_messages.route('/auth/send_message', methods=['POST'])
+@token_required
+def send_message_auth(current_user):
+    """Send a message using JWT authentication"""
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data or 'recipient_user_id' not in data:
+            return jsonify({
+                'error': 'Message content and recipient_user_id are required'
+            }), 400
+
+        message = data['message']
+        recipient_user_id = data['recipient_user_id']
+        sender_user_id = current_user['user_id']
+
+        # Check if recipient exists
+        if not check_user_exists(recipient_user_id):
+            return jsonify({
+                'error': 'Recipient user not found'
+            }), 404
+
+        # Check if sender is trying to send to themselves
+        if sender_user_id == recipient_user_id:
+            return jsonify({
+                'error': 'Cannot send message to yourself'
+            }), 400
+
+        # Store message in chat database
+        conn = sqlite3.connect(CHAT_DATABASE)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO messages (sender_user_id, recipient_user_id, message)
+            VALUES (?, ?, ?)
+        ''', (sender_user_id, recipient_user_id, message))
+
+        message_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'message': 'Message sent successfully',
+            'message_id': message_id,
+            'sender': sender_user_id,
+            'recipient': recipient_user_id,
+            'timestamp': datetime.now().isoformat()
+        }), 201
+
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to send message: {str(e)}'
+        }), 500
+
+)
+
