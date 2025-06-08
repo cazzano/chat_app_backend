@@ -7,22 +7,12 @@ from werkzeug.security import check_password_hash
 from modules.auth_app.get_user_from_db import get_user_from_database
 from modules.auth_app.token_reguired import token_required
 from modules.auth_app.verify_user_credentials import verify_user_credentials
-from apis.auth_app.documentation import documentation
-from apis.chat.login_jwt import login_jwt
-from apis.auth_app.refresh_tokens import refresh_tokens
-from apis.auth_app.verify_token import verify_tokens
-from apis.auth_app.get_users import get_users
-from apis.auth_app.protected import protected
-from apis.auth_app.validate_users import validate_users
+from apis.auth_app.login_jwt import login_jwt
 
 app = Flask(__name__)
 
 app.register_blueprint(login_jwt)
-app.register_blueprint(refresh_tokens)
-app.register_blueprint(verify_tokens)
-app.register_blueprint(get_users)
-app.register_blueprint(protected)
-app.register_blueprint(validate_users)
+
 
 # Secret key for JWT encoding/decoding (in production, use environment variable)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'

@@ -15,7 +15,6 @@ from apis.chat.conversation import conversation
 from apis.chat.delete_message import delete_message
 from apis.chat.mark_as_read import mark_as_read
 from apis.chat.get_messages import get_messages
-from apis.chat.login_jwt import login_jwt
 
 # Configuration
 CHAT_DATABASE = 'chat.db'
@@ -33,7 +32,7 @@ app.register_blueprint(get_users)
 app.register_blueprint(conversation)
 app.register_blueprint(delete_message)
 app.register_blueprint(mark_as_read)
-app.register_blueprint(login_jwt)
+
 
 # Utility endpoints
 
