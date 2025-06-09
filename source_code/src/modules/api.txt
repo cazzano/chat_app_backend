@@ -78,5 +78,7 @@ curl -X POST http://localhost:5000/auth/respond_friend_request \
   -H "Content-Type: application/json" \
   -d '{"username": "john_doe", "action": "accept"}'
 
+curl -X GET http://localhost:2000/auth/get_friends \
+  -H "Authorization: Bearer your_token"
 
 
