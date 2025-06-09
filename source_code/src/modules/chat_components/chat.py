@@ -27,7 +27,7 @@ from apis.chat.mark_as_read import mark_as_read
 from apis.chat.get_messages import get_messages
 from apis.chat.search_user import search_user
 from apis.chat.send_friend_request import send_friend_request
-from apis.chat.get_friend_request import get_friend_request
+from apis.chat.get_friend_requests import get_friend_requests
 from apis.chat.get_friends import get_friends
 from apis.chat.respond_friend_request import respond_friend_request
 
@@ -49,7 +49,7 @@ app.register_blueprint(delete_message)
 app.register_blueprint(mark_as_read)
 app.register_blueprint(search_user)
 app.register_blueprint(send_friend_request)
-app.register_blueprint(get_friend_request)
+app.register_blueprint(get_friend_requests)
 app.register_blueprint(get_friends)
 app.register_blueprint(respond_friend_request)
 
