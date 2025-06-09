@@ -1,0 +1,41 @@
+from flask import Flask, request, jsonify, Blueprint
+import sqlite3
+import requests
+import jwt
+from functools import wraps
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
+from modules.chat.token_verification_and_autorization import token_required
+
+
+
+# Configuration
+CHAT_DATABASE = 'chat.db'
+FR_REQUESTS_DATABASE = 'fr_requests.db'
+FRIENDS_DATABASE = 'friends.db'
+USER_API_URL = 'http://localhost:5000'  # User registration API URL
+AUTH_API_URL = 'http://localhost:3000'  # Authentication API URL
+JWT_SECRET_KEY = 'your-secret-key-change-this-in-production'  # Should match auth_app.py
+
+
+
+def check_if_already_friends(user1_id, user2_id):
+    """Check if two users are already friends"""
+    try:
+        init_friends_db()
+        conn = sqlite3.connect(FRIENDS_DATABASE)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT friendship_id FROM friends
+            WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
+        ''', (user1_id, user2_id, user2_id, user1_id))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        return result is not None
+
+    except Exception as e:
+        print(f"Error checking if users are friends: {e}")
+        return False
