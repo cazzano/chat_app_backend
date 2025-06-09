@@ -16,6 +16,7 @@ from apis.chat.delete_message import delete_message
 from apis.chat.mark_as_read import mark_as_read
 from apis.chat.get_messages import get_messages
 from apis.chat.search_user import search_user
+from apis.chat.fr_request import send_friend_request
 
 # Configuration
 CHAT_DATABASE = 'chat.db'
@@ -34,6 +35,7 @@ app.register_blueprint(conversation)
 app.register_blueprint(delete_message)
 app.register_blueprint(mark_as_read)
 app.register_blueprint(search_user)
+app.register_blueprint(send_friend_request)
 
 
 # Utility endpoints
