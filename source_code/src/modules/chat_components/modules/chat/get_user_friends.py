@@ -6,6 +6,7 @@ from functools import wraps
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 from modules.chat.token_verification_and_autorization import token_required
+from modules.chat.init_friends_db import init_friends_db
 
 
 

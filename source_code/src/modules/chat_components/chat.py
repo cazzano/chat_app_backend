@@ -9,6 +9,16 @@ from modules.chat.init_chat_db import init_chat_db
 from modules.chat.token_verification_and_autorization import token_required
 from modules.chat.users_credentials_verification_from_db import verify_user_credentials
 from modules.chat.check_user_exist_from_db import check_user_exists
+from modules.chat.token_verification_and_autorization import token_required
+from modules.chat.init_friends_db import init_friends_db
+from modules.chat.init_request_db import init_friend_requests_db
+from modules.chat.remove_friendship import remove_friendship
+from modules.chat.get_user_friends import get_user_friends
+from modules.chat.get_user_by_username import get_user_by_username
+from modules.chat.add_friendship import add_friendship
+from modules.chat.check_existing_friend_request import check_existing_friend_request
+from modules.chat.check_if_already_friends import check_if_already_friends
+from modules.chat.get_user_by_userid import get_username_by_user_id
 from apis.chat.send_messages import send_messages
 from apis.chat.get_users import get_users
 from apis.chat.conversation import conversation
@@ -16,7 +26,10 @@ from apis.chat.delete_message import delete_message
 from apis.chat.mark_as_read import mark_as_read
 from apis.chat.get_messages import get_messages
 from apis.chat.search_user import search_user
-from apis.chat.fr_request import send_friend_request
+from apis.chat.send_friend_request import send_friend_request
+from apis.chat.get_friend_request import get_friend_request
+from apis.chat.get_friends import get_friends
+from apis.chat.respond_friend_request import respond_friend_request
 
 # Configuration
 CHAT_DATABASE = 'chat.db'
@@ -36,6 +49,9 @@ app.register_blueprint(delete_message)
 app.register_blueprint(mark_as_read)
 app.register_blueprint(search_user)
 app.register_blueprint(send_friend_request)
+app.register_blueprint(get_friend_request)
+app.register_blueprint(get_friends)
+app.register_blueprint(respond_friend_request)
 
 
 # Utility endpoints
